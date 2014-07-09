@@ -11,13 +11,12 @@ class ResectionPath:
     parent.title = "ResectionPath" # TODO make this more human readable by adding spaces
     parent.categories = ["IGT"]
     parent.dependencies = []
-    parent.contributors = ["John Doe (AnyWare Corp.)"] # replace with "Firstname Lastname (Organization)"
+    parent.contributors = ["Matt Lougheed (Queen's University)"] # replace with "Firstname Lastname (Organization)"
     parent.helpText = """
-    This is an example of scripted loadable module bundled in an extension.
+    This module uses fiducial points to create a 3D shape representing a resection
     """
     parent.acknowledgementText = """
-    This file was originally developed by Jean-Christophe Fillion-Robin, Kitware Inc.
-    and Steve Pieper, Isomics, Inc. and was partially funded by NIH grant 3P41RR013218-12S1.
+
 """ # replace with organization, grant and thanks.
     self.parent = parent
 
@@ -90,68 +89,50 @@ class ResectionPathWidget:
     parametersFormLayout = qt.QFormLayout(parametersCollapsibleButton)
 
     #
-    # input volume selector
+    # Fiducial Selector
     #
-    self.inputSelector = slicer.qMRMLNodeComboBox()
-    self.inputSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.inputSelector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
-    self.inputSelector.selectNodeUponCreation = True
-    self.inputSelector.addEnabled = False
-    self.inputSelector.removeEnabled = False
-    self.inputSelector.noneEnabled = False
-    self.inputSelector.showHidden = False
-    self.inputSelector.showChildNodeTypes = False
-    self.inputSelector.setMRMLScene( slicer.mrmlScene )
-    self.inputSelector.setToolTip( "Pick the input to the algorithm." )
-    parametersFormLayout.addRow("Input Volume: ", self.inputSelector)
+    self.fiducialSelector = slicer.qMRMLNodeComboBox()
+    self.fiducialSelector.nodeTypes = (("vtkMRMLMarkupsFiducialNode"), "")
+    self.fiducialSelector.addEnabled = False
+    self.fiducialSelector.removeEnabled = False
+    self.fiducialSelector.noneEnabled = True
+    self.fiducialSelector.showHidden = False
+    self.fiducialSelector.renameEnabled = True
+    self.fiducialSelector.showChildNodeTypes = False
+    self.fiducialSelector.setMRMLScene(slicer.mrmlScene)
+    self.fiducialSelector.setToolTip("Select the fiducials to use for the resection area")
+    parametersFormLayout.addRow("Fiducial points: ", self.fiducialSelector)
 
     #
-    # output volume selector
+    # Model Selector
     #
-    self.outputSelector = slicer.qMRMLNodeComboBox()
-    self.outputSelector.nodeTypes = ( ("vtkMRMLScalarVolumeNode"), "" )
-    self.outputSelector.addAttribute( "vtkMRMLScalarVolumeNode", "LabelMap", 0 )
-    self.outputSelector.selectNodeUponCreation = False
-    self.outputSelector.addEnabled = True
-    self.outputSelector.removeEnabled = True
-    self.outputSelector.noneEnabled = False
-    self.outputSelector.showHidden = False
-    self.outputSelector.showChildNodeTypes = False
-    self.outputSelector.setMRMLScene( slicer.mrmlScene )
-    self.outputSelector.setToolTip( "Pick the output to the algorithm." )
-    parametersFormLayout.addRow("Output Volume: ", self.outputSelector)
+    self.modelSelector = slicer.qMRMLNodeComboBox()
+    self.modelSelector.nodeTypes = (("vtkMRMLModelNode"), "")
+    self.modelSelector.addEnabled = True
+    self.modelSelector.removeEnabled = False
+    self.modelSelector.noneEnabled = True
+    self.modelSelector.showHidden = False
+    self.modelSelector.renameEnabled = True
+    self.modelSelector.selectNodeUponCreation = True
+    self.modelSelector.showChildNodeTypes = False
+    self.modelSelector.setMRMLScene(slicer.mrmlScene)
+    self.modelSelector.setToolTip("Choose the model node.")
+    parametersFormLayout.addRow("Resection area model: ", self.modelSelector)
 
     #
-    # check box to trigger taking screen shots for later use in tutorials
+    # Generate Button
     #
-    self.enableScreenshotsFlagCheckBox = qt.QCheckBox()
-    self.enableScreenshotsFlagCheckBox.checked = 0
-    self.enableScreenshotsFlagCheckBox.setToolTip("If checked, take screen shots for tutorials. Use Save Data to write them to disk.")
-    parametersFormLayout.addRow("Enable Screenshots", self.enableScreenshotsFlagCheckBox)
+    self.generateButton = qt.QPushButton("Generate")
+    self.generateButton.toolTip = "Generate the resection area"
+    self.generateButton.enabled = False
+    parametersFormLayout.addRow(self.generateButton)
 
     #
-    # scale factor for screen shots
+    # Connections
     #
-    self.screenshotScaleFactorSliderWidget = ctk.ctkSliderWidget()
-    self.screenshotScaleFactorSliderWidget.singleStep = 1.0
-    self.screenshotScaleFactorSliderWidget.minimum = 1.0
-    self.screenshotScaleFactorSliderWidget.maximum = 50.0
-    self.screenshotScaleFactorSliderWidget.value = 1.0
-    self.screenshotScaleFactorSliderWidget.setToolTip("Set scale factor for the screen shots.")
-    parametersFormLayout.addRow("Screenshot scale factor", self.screenshotScaleFactorSliderWidget)
-
-    #
-    # Apply Button
-    #
-    self.applyButton = qt.QPushButton("Apply")
-    self.applyButton.toolTip = "Run the algorithm."
-    self.applyButton.enabled = False
-    parametersFormLayout.addRow(self.applyButton)
-
-    # connections
-    self.applyButton.connect('clicked(bool)', self.onApplyButton)
-    self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-    self.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.generateButton.connect('clicked(bool)', self.onGenerateButton)
+    self.fiducialSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.modelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -160,14 +141,19 @@ class ResectionPathWidget:
     pass
 
   def onSelect(self):
-    self.applyButton.enabled = self.inputSelector.currentNode() and self.outputSelector.currentNode()
+    if (self.fiducialSelector.currentNode() != None and self.modelSelector.currentNode() != None):
+      self.generateButton.setDisabled(False)
+    else:
+      self.generateButton.setDisabled(True)
 
-  def onApplyButton(self):
-    logic = ResectionPathLogic()
-    enableScreenshotsFlag = self.enableScreenshotsFlagCheckBox.checked
-    screenshotScaleFactor = int(self.screenshotScaleFactorSliderWidget.value)
-    print("Run the algorithm")
-    logic.run(self.inputSelector.currentNode(), self.outputSelector.currentNode(), enableScreenshotsFlag,screenshotScaleFactor)
+  def onGenerateButton(self):
+    if (self.fiducialSelector.currentNode() != None and self.modelSelector.currentNode() != None):
+      if (self.fiducialSelector.currentNode().GetNumberOfFiducials() > 3):
+        logic = ResectionPathLogic()
+        logic.generateResectionVolume(self.fiducialSelector.currentNode(), self.modelSelector.currentNode())
+      else:
+        qt.QMessageBox.warning(slicer.util.mainWindow(), "Generate Button", 'Error: You need at least 4 points to generate the resection area object')
+
 
   def onReload(self,moduleName="ResectionPath"):
     """Generic reload method for any scripted module.
@@ -202,83 +188,50 @@ class ResectionPathLogic:
   def __init__(self):
     pass
 
-  def hasImageData(self,volumeNode):
-    """This is a dummy logic method that
-    returns true if the passed in volume
-    node has valid image data
-    """
-    if not volumeNode:
-      print('no volume node')
-      return False
-    if volumeNode.GetImageData() == None:
-      print('no image data')
-      return False
-    return True
+  def updatePoints(self):
+    points = vtk.vtkPoints()
+    cellArray = vtk.vtkCellArray()
 
-  def delayDisplay(self,message,msec=1000):
-    #
-    # logic version of delay display
-    #
-    print(message)
-    self.info = qt.QDialog()
-    self.infoLayout = qt.QVBoxLayout()
-    self.info.setLayout(self.infoLayout)
-    self.label = qt.QLabel(message,self.info)
-    self.infoLayout.addWidget(self.label)
-    qt.QTimer.singleShot(msec, self.info.close)
-    self.info.exec_()
+    numberOfPoints = self.FiducialNode.GetNumberOfFiducials()
+    points.SetNumberOfPoints(numberOfPoints)
+    x = [0.0, 0.0, 0.0]
+    for i in range(numberOfPoints):
+      self.FiducialNode.GetNthFiducialPosition(i,x)
+      points.SetPoint(i, x)
 
-  def takeScreenshot(self,name,description,type=-1):
-    # show the message even if not taking a screen shot
-    self.delayDisplay(description)
+    self.PolyData.SetPoints(points)
 
-    if self.enableScreenshots == 0:
-      return
+  def updateResectionVolume(self, caller, event):
+    if (caller.IsA('vtkMRMLMarkupsFiducialNode') and event == 'ModifiedEvent'):
+        self.updatePoints()
 
-    lm = slicer.app.layoutManager()
-    # switch on the type to get the requested window
-    widget = 0
-    if type == -1:
-      # full window
-      widget = slicer.util.mainWindow()
-    elif type == slicer.qMRMLScreenShotDialog().FullLayout:
-      # full layout
-      widget = lm.viewport()
-    elif type == slicer.qMRMLScreenShotDialog().ThreeD:
-      # just the 3D window
-      widget = lm.threeDWidget(0).threeDView()
-    elif type == slicer.qMRMLScreenShotDialog().Red:
-      # red slice window
-      widget = lm.sliceWidget("Red")
-    elif type == slicer.qMRMLScreenShotDialog().Yellow:
-      # yellow slice window
-      widget = lm.sliceWidget("Yellow")
-    elif type == slicer.qMRMLScreenShotDialog().Green:
-      # green slice window
-      widget = lm.sliceWidget("Green")
+  def generateResectionVolume(self, fiducialNode, modelNode):
+    if (fiducialNode != None):
+      self.FiducialNode = fiducialNode
+      self.PolyData = vtk.vtkPolyData()
+      self.updatePoints()
 
-    # grab and convert to vtk image data
-    qpixMap = qt.QPixmap().grabWidget(widget)
-    qimage = qpixMap.toImage()
-    imageData = vtk.vtkImageData()
-    slicer.qMRMLUtils().qImageToVtkImageData(qimage,imageData)
+      self.Delaunay = vtk.vtkDelaunay3D()
+      self.Delaunay.SetInputData(self.PolyData)
+      self.Delaunay.Update()
 
-    annotationLogic = slicer.modules.annotations.logic()
-    annotationLogic.CreateSnapShot(name, description, type, self.screenshotScaleFactor, imageData)
+      self.SurfaceFilter = vtk.vtkDataSetSurfaceFilter()
+      self.SurfaceFilter.SetInputConnection(self.Delaunay.GetOutputPort())
+      self.SurfaceFilter.Update()
 
-  def run(self,inputVolume,outputVolume,enableScreenshots=0,screenshotScaleFactor=1):
-    """
-    Run the actual algorithm
-    """
+      if modelNode.GetDisplayNodeID() == None:
+        modelDisplayNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLModelDisplayNode")
+        modelDisplayNode.SetColor(0,0,1) # Blue
+        #modelDisplayNode.BackfaceCullingOff()
+        modelDisplayNode.SetOpacity(0.3) # Between 0-1, 1 being opaque
+        slicer.mrmlScene.AddNode(modelDisplayNode)
+        modelNode.SetAndObserveDisplayNodeID(modelDisplayNode.GetID())
 
-    self.delayDisplay('Running the aglorithm')
+      modelNode.SetPolyDataConnection(self.SurfaceFilter.GetOutputPort())
+      modelNode.Modified()
+      slicer.mrmlScene.AddNode(modelNode)
 
-    self.enableScreenshots = enableScreenshots
-    self.screenshotScaleFactor = screenshotScaleFactor
-
-    self.takeScreenshot('ResectionPath-Start','Start',-1)
-
-    return True
+      self.tag = self.FiducialNode.AddObserver('ModifiedEvent', self.updateResectionVolume)
 
 
 class ResectionPathTest(unittest.TestCase):

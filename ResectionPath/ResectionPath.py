@@ -194,11 +194,17 @@ class ResectionPathLogic:
 
     numberOfPoints = self.FiducialNode.GetNumberOfFiducials()
     points.SetNumberOfPoints(numberOfPoints)
-    x = [0.0, 0.0, 0.0]
-    for i in range(numberOfPoints):
-      self.FiducialNode.GetNthFiducialPosition(i,x)
-      points.SetPoint(i, x)
+    new_coord = [0.0, 0.0, 0.0]
 
+    for i in range(numberOfPoints):
+      self.FiducialNode.GetNthFiducialPosition(i,new_coord)
+      points.SetPoint(i, new_coord)
+
+    cellArray.InsertNextCell(numberOfPoints)
+    for i in range(numberOfPoints):
+      cellArray.InsertCellPoint(i)
+
+    self.PolyData.SetLines(cellArray)
     self.PolyData.SetPoints(points)
 
   def updateResectionVolume(self, caller, event):
@@ -219,15 +225,20 @@ class ResectionPathLogic:
       self.SurfaceFilter.SetInputConnection(self.Delaunay.GetOutputPort())
       self.SurfaceFilter.Update()
 
+      self.Smoother = vtk.vtkButterflySubdivisionFilter()
+      self.Smoother.SetInputConnection(self.SurfaceFilter.GetOutputPort())
+      self.Smoother.SetNumberOfSubdivisions(3)
+      self.Smoother.Update()
+
       if modelNode.GetDisplayNodeID() == None:
         modelDisplayNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLModelDisplayNode")
         modelDisplayNode.SetColor(0,0,1) # Blue
-        #modelDisplayNode.BackfaceCullingOff()
+        modelDisplayNode.BackfaceCullingOff()
         modelDisplayNode.SetOpacity(0.3) # Between 0-1, 1 being opaque
         slicer.mrmlScene.AddNode(modelDisplayNode)
         modelNode.SetAndObserveDisplayNodeID(modelDisplayNode.GetID())
 
-      modelNode.SetPolyDataConnection(self.SurfaceFilter.GetOutputPort())
+      modelNode.SetPolyDataConnection(self.Smoother.GetOutputPort())
       modelNode.Modified()
       slicer.mrmlScene.AddNode(modelNode)
 

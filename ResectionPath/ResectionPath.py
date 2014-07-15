@@ -49,6 +49,8 @@ class ResectionPathWidget:
     if not parent:
       self.setup()
       self.parent.show()
+    self.logic = ResectionPathLogic()
+
 
   def setup(self):
     # Instantiate and connect widgets ...
@@ -93,7 +95,7 @@ class ResectionPathWidget:
     #
     self.fiducialSelector = slicer.qMRMLNodeComboBox()
     self.fiducialSelector.nodeTypes = (("vtkMRMLMarkupsFiducialNode"), "")
-    self.fiducialSelector.addEnabled = False
+    self.fiducialSelector.addEnabled = True
     self.fiducialSelector.removeEnabled = False
     self.fiducialSelector.noneEnabled = True
     self.fiducialSelector.showHidden = False
@@ -104,7 +106,7 @@ class ResectionPathWidget:
     parametersFormLayout.addRow("Fiducial points: ", self.fiducialSelector)
 
     #
-    # Model Selector
+    # Resection model Selector
     #
     self.modelSelector = slicer.qMRMLNodeComboBox()
     self.modelSelector.nodeTypes = (("vtkMRMLModelNode"), "")
@@ -116,23 +118,62 @@ class ResectionPathWidget:
     self.modelSelector.selectNodeUponCreation = True
     self.modelSelector.showChildNodeTypes = False
     self.modelSelector.setMRMLScene(slicer.mrmlScene)
-    self.modelSelector.setToolTip("Choose the model node.")
+    self.modelSelector.setToolTip("Choose the resection area model.")
     parametersFormLayout.addRow("Resection area model: ", self.modelSelector)
 
     #
     # Generate Button
     #
-    self.generateButton = qt.QPushButton("Generate")
-    self.generateButton.toolTip = "Generate the resection area"
-    self.generateButton.enabled = False
-    parametersFormLayout.addRow(self.generateButton)
+    self.generateSurface = qt.QCheckBox()
+    self.generateSurface.setToolTip("Generate the resection area surface")
+    self.generateSurface.checked = 0
+    parametersFormLayout.addRow("Generate Resection Surface",self.generateSurface)
+
+    #
+    # Label Volume Selector
+    #
+    self.labelSelector = slicer.qMRMLNodeComboBox()
+    self.labelSelector.nodeTypes = ("vtkMRMLScalarVolumeNode", "")
+    self.labelSelector.addEnabled = False
+    self.labelSelector.removeEnabled = False
+    self.labelSelector.noneEnabled = True
+    self.labelSelector.showHidden = False
+    self.labelSelector.showChildNodeTypes = False
+    self.labelSelector.setMRMLScene(slicer.mrmlScene)
+    self.labelSelector.setToolTip("Choose the label map")
+    parametersFormLayout.addRow("Label Map: ", self.labelSelector)
+
+    #
+    # Initial Label Value Selector
+    #
+    self.initialLabelValueSelector = qt.QSpinBox()
+    self.initialLabelValueSelector.setToolTip("Choose the value within the label map to recolor using the resection area")
+    self.initialLabelValueSelector.setValue(1)
+    parametersFormLayout.addRow("Label value for recoloring", self.initialLabelValueSelector)
+
+    #
+    # Output Label Value Selector
+    #
+    self.outputLabelValueSelector = qt.QSpinBox()
+    self.outputLabelValueSelector.setToolTip("Choose the value to recolor the area within the resection to")
+    parametersFormLayout.addRow("Label value for resection area", self.outputLabelValueSelector)
+
+    #
+    # Relabel button
+    #
+    self.recolorLabelButton = qt.QPushButton("Recolor Label Map")
+    self.recolorLabelButton.toolTip = "Recolor the label map to create a new label for the resection area."
+    self.recolorLabelButton.enabled = False
+    parametersFormLayout.addRow(self.recolorLabelButton)
 
     #
     # Connections
     #
-    self.generateButton.connect('clicked(bool)', self.onGenerateButton)
+    self.generateSurface.connect('toggled(bool)', self.onGenerateSurface)
     self.fiducialSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
     self.modelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.labelSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.recolorLabelButton.connect('clicked(bool)', self.onRecolorLabelMap)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -142,18 +183,30 @@ class ResectionPathWidget:
 
   def onSelect(self):
     if (self.fiducialSelector.currentNode() != None and self.modelSelector.currentNode() != None):
-      self.generateButton.setDisabled(False)
-    else:
-      self.generateButton.setDisabled(True)
+      self.logic.deactivateEvent()
+      self.generateSurface.setCheckState(False)
+      if (self.labelSelector.currentNode() != None):
+        self.recolorLabelButton.setDisabled(False)
+      else:
+        self.recolorLabelButton.setDisabled(True)
 
-  def onGenerateButton(self):
-    if (self.fiducialSelector.currentNode() != None and self.modelSelector.currentNode() != None):
+  def onGenerateSurface(self, status):
+    if (status == True and self.fiducialSelector.currentNode() != None and self.modelSelector.currentNode() != None):
       if (self.fiducialSelector.currentNode().GetNumberOfFiducials() > 3):
-        logic = ResectionPathLogic()
-        logic.generateResectionVolume(self.fiducialSelector.currentNode(), self.modelSelector.currentNode())
+        self.logic.generateResectionVolume(self.fiducialSelector.currentNode(), self.modelSelector.currentNode())
+        if (self.labelSelector.currentNode() != None):
+          self.recolorLabelButton.setDisabled(False)
       else:
         qt.QMessageBox.warning(slicer.util.mainWindow(), "Generate Button", 'Error: You need at least 4 points to generate the resection area object')
+        self.generateSurface.setCheckState(False)
+        self.recolorLabelButton.setDisabled(True)
+    else:
+      self.logic.deactivateEvent()
+      self.generateSurface.setCheckState(False)
+      self.recolorLabelButton.setDisabled(True)
 
+  def onRecolorLabelMap(self):
+    self.logic.recolorLabelMap(self.modelSelector.currentNode(), self.labelSelector.currentNode())
 
   def onReload(self,moduleName="ResectionPath"):
     """Generic reload method for any scripted module.
@@ -186,7 +239,8 @@ class ResectionPathLogic:
   requiring an instance of the Widget
   """
   def __init__(self):
-    pass
+    self.FiducialNode = None
+    self.tag = 0;
 
   def updatePoints(self):
     points = vtk.vtkPoints()
@@ -243,6 +297,63 @@ class ResectionPathLogic:
       slicer.mrmlScene.AddNode(modelNode)
 
       self.tag = self.FiducialNode.AddObserver('ModifiedEvent', self.updateResectionVolume)
+
+  def recolorLabelMap(self, modelNode, labelMap):
+    if (modelNode != None and labelMap != None):
+      self.labelMapImgData = labelMap.GetImageData()
+
+      '''
+      ijkToRasMatrix = vtk.vtkMatrix4x4()
+      labelMap.GetIJKToRASMatrix(ijkToRasMatrix)
+      ijkToRasTransform = vtk.vtkTransform()
+      ijkToRasTransform.SetMatrix(ijkToRasMatrix)
+      '''
+
+      rasToIjkMatrix = vtk.vtkMatrix4x4()
+      labelMap.GetRASToIJKMatrix(rasToIjkMatrix)
+      rasToIjkTransform = vtk.vtkTransform()
+      rasToIjkTransform.SetMatrix(rasToIjkMatrix)
+      rasToIjkTransform.Update()
+
+      polyDataTransformFilter = vtk.vtkTransformPolyDataFilter()
+      polyDataTransformFilter.SetInputData(modelNode.GetPolyData())
+      polyDataTransformFilter.SetTransform(rasToIjkTransform)
+      polyDataTransformFilter.Update()
+      print "Updated transform filter"
+
+      self.filter = vtk.vtkSelectEnclosedPoints()
+      self.filter.SetInputData(self.labelMapImgData)
+      self.filter.SetSurfaceConnection(polyDataTransformFilter.GetOutputPort())
+      #self.filter.SetSurfaceData(polyDataTransformFilter.GetOutput())
+      self.filter.Update()
+      print "Updated select enclosed points filter"
+
+      dimensions = self.labelMapImgData.GetDimensions()
+      x_dim = dimensions[0]
+      y_dim = dimensions[1]
+      z_dim = dimensions[2]
+      numberOfPoints = self.labelMapImgData.GetNumberOfPoints()
+      insideCount = 0;
+      print "Going to iterate image now"
+      for z in range(z_dim):
+        for y in range(y_dim):
+          for x in range(x_dim):
+            if (self.filter.IsInsideSurface(x,y,z)):
+              #self.labelMapImgData.SetScalarComponentFromDouble(x,y,z,0,2)
+              insideCount = insideCount + 1
+      print insideCount
+      '''
+      for i in range(numberOfPoints):
+        if (self.filter.IsInside(i)):
+          insideCount = insideCount + 1;
+      print insideCount
+      '''
+      self.labelMapImgData.Modified()
+  def deactivateEvent(self):
+    if (self.FiducialNode):
+      self.FiducialNode.RemoveObserver(self.tag)
+      self.FiducialNode = None
+      #self.DestinationNode = None
 
 
 class ResectionPathTest(unittest.TestCase):

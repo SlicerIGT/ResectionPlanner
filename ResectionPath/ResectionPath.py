@@ -1,6 +1,8 @@
 import os
+import sys
 import unittest
 from __main__ import vtk, qt, ctk, slicer
+
 
 #
 # ResectionPath
@@ -10,10 +12,10 @@ class ResectionPath:
   def __init__(self, parent):
     parent.title = "ResectionPath" # TODO make this more human readable by adding spaces
     parent.categories = ["IGT"]
-    parent.dependencies = []
-    parent.contributors = ["Matt Lougheed (Queen's University)"] # replace with "Firstname Lastname (Organization)"
+    parent.dependencies = ["Contours"]
+    parent.contributors = ["Matt Lougheed (Queen's University)"]
     parent.helpText = """
-    This module uses fiducial points to create a 3D shape representing a resection
+    This module uses fiducial points to create a 3D shape representing a resection.
     """
     parent.acknowledgementText = """
 
@@ -206,7 +208,7 @@ class ResectionPathWidget:
       self.recolorLabelButton.setDisabled(True)
 
   def onRecolorLabelMap(self):
-    self.logic.recolorLabelMap(self.modelSelector.currentNode(), self.labelSelector.currentNode())
+    self.logic.recolorLabelMap(self.modelSelector.currentNode(), self.labelSelector.currentNode(), self.initialLabelValueSelector.value, self.outputLabelValueSelector.value)
 
   def onReload(self,moduleName="ResectionPath"):
     """Generic reload method for any scripted module.
@@ -271,8 +273,12 @@ class ResectionPathLogic:
       self.PolyData = vtk.vtkPolyData()
       self.updatePoints()
 
+
       self.Delaunay = vtk.vtkDelaunay3D()
-      self.Delaunay.SetInputData(self.PolyData)
+      if (vtk.VTK_MAJOR_VERSION <= 5):
+        self.Delaunay.SetInput(self.PolyData)
+      else:
+        self.Delaunay.SetInputData(self.PolyData)
       self.Delaunay.Update()
 
       self.SurfaceFilter = vtk.vtkDataSetSurfaceFilter()
@@ -292,68 +298,77 @@ class ResectionPathLogic:
         slicer.mrmlScene.AddNode(modelDisplayNode)
         modelNode.SetAndObserveDisplayNodeID(modelDisplayNode.GetID())
 
-      modelNode.SetPolyDataConnection(self.Smoother.GetOutputPort())
+      if (vtk.VTK_MAJOR_VERSION <= 5):
+        modelNode.SetAndObservePolyData(self.Smoother.GetOutput())
+      else:
+        modelNode.SetPolyDataConnection(self.Smoother.GetOutputPort())
       modelNode.Modified()
       slicer.mrmlScene.AddNode(modelNode)
 
       self.tag = self.FiducialNode.AddObserver('ModifiedEvent', self.updateResectionVolume)
 
-  def recolorLabelMap(self, modelNode, labelMap):
+  def recolorLabelMap(self, modelNode, labelMap, initialValue, outputValue):
     if (modelNode != None and labelMap != None):
-      self.labelMapImgData = labelMap.GetImageData()
 
-      '''
+      self.labelMapImgData = labelMap.GetImageData()
+      self.resectionPolyData = modelNode.GetPolyData()
+
+      # IJK -> RAS
       ijkToRasMatrix = vtk.vtkMatrix4x4()
       labelMap.GetIJKToRASMatrix(ijkToRasMatrix)
-      ijkToRasTransform = vtk.vtkTransform()
-      ijkToRasTransform.SetMatrix(ijkToRasMatrix)
-      '''
 
+      # RAS -> IJK
       rasToIjkMatrix = vtk.vtkMatrix4x4()
       labelMap.GetRASToIJKMatrix(rasToIjkMatrix)
       rasToIjkTransform = vtk.vtkTransform()
       rasToIjkTransform.SetMatrix(rasToIjkMatrix)
       rasToIjkTransform.Update()
 
+      # Transform Resection model from RAS -> IJK
       polyDataTransformFilter = vtk.vtkTransformPolyDataFilter()
-      polyDataTransformFilter.SetInputData(modelNode.GetPolyData())
+      polyDataTransformFilter.SetInput(self.resectionPolyData)
       polyDataTransformFilter.SetTransform(rasToIjkTransform)
       polyDataTransformFilter.Update()
-      print "Updated transform filter"
 
-      self.filter = vtk.vtkSelectEnclosedPoints()
-      self.filter.SetInputData(self.labelMapImgData)
-      self.filter.SetSurfaceConnection(polyDataTransformFilter.GetOutputPort())
-      #self.filter.SetSurfaceData(polyDataTransformFilter.GetOutput())
-      self.filter.Update()
-      print "Updated select enclosed points filter"
+      # Convert Resection model to label map
+      polyDataToLabelmapFilter = vtkSlicerRtCommonPython.vtkPolyDataToLabelmapFilter()
+      polyDataToLabelmapFilter.SetInputPolyData(polyDataTransformFilter.GetOutput())
+      polyDataToLabelmapFilter.SetReferenceImage(self.labelMapImgData)
+      polyDataToLabelmapFilter.UseReferenceValuesOn()
+      polyDataToLabelmapFilter.SetBackgroundValue(0)
+      polyDataToLabelmapFilter.SetLabelValue(outputValue)
+      polyDataToLabelmapFilter.Update()
 
-      dimensions = self.labelMapImgData.GetDimensions()
-      x_dim = dimensions[0]
-      y_dim = dimensions[1]
-      z_dim = dimensions[2]
-      numberOfPoints = self.labelMapImgData.GetNumberOfPoints()
-      insideCount = 0;
-      print "Going to iterate image now"
-      for z in range(z_dim):
-        for y in range(y_dim):
-          for x in range(x_dim):
-            if (self.filter.IsInsideSurface(x,y,z)):
-              #self.labelMapImgData.SetScalarComponentFromDouble(x,y,z,0,2)
-              insideCount = insideCount + 1
-      print insideCount
-      '''
-      for i in range(numberOfPoints):
-        if (self.filter.IsInside(i)):
-          insideCount = insideCount + 1;
-      print insideCount
-      '''
+      # Cast resection label map to unsigned char for use with mask filter
+      castFilter = vtk.vtkImageCast()
+      if (vtk.VTK_MAJOR_VERSION <= 5):
+        castFilter.SetInput(polyDataToLabelmapFilter.GetOutput())
+      else:
+        castFilter.SetInputData(polyDataToLabelmapFilter.GetOutput())
+      castFilter.SetOutputScalarTypeToUnsignedChar()
+      castFilter.Update()
+
+      # Create mask for recoloring the original label map
+      maskFilter = vtk.vtkImageMask()
+      if (vtk.VTK_MAJOR_VERSION <= 5):
+        maskFilter.SetImageInput(self.labelMapImgData)
+        maskFilter.SetMaskInput(castFilter.GetOutput())
+      else:
+        maskFilter.SetImageInputData(self.labelMapImgData)
+        maskFilter.SetMaskInputData(castFilter.GetOutput())
+      maskFilter.SetMaskedOutputValue(outputValue)
+      maskFilter.NotMaskOn()
+      maskFilter.Update()
+
+      print "Finished running mask"
+      self.labelMapImgData = maskFilter.GetOutput()
       self.labelMapImgData.Modified()
+      labelMap.SetAndObserveImageData(self.labelMapImgData)
+
   def deactivateEvent(self):
     if (self.FiducialNode):
       self.FiducialNode.RemoveObserver(self.tag)
       self.FiducialNode = None
-      #self.DestinationNode = None
 
 
 class ResectionPathTest(unittest.TestCase):

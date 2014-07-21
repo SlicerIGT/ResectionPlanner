@@ -1,8 +1,6 @@
 import os
-import sys
 import unittest
 from __main__ import vtk, qt, ctk, slicer
-
 
 #
 # ResectionPath
@@ -308,6 +306,7 @@ class ResectionPathLogic:
       self.tag = self.FiducialNode.AddObserver('ModifiedEvent', self.updateResectionVolume)
 
   def recolorLabelMap(self, modelNode, labelMap, initialValue, outputValue):
+    import vtkSlicerRtCommonPython
     if (modelNode != None and labelMap != None):
 
       self.labelMapImgData = labelMap.GetImageData()

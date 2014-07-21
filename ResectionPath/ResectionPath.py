@@ -301,7 +301,6 @@ class ResectionPathLogic:
       else:
         modelNode.SetPolyDataConnection(self.Smoother.GetOutputPort())
       modelNode.Modified()
-      slicer.mrmlScene.AddNode(modelNode)
 
       self.tag = self.FiducialNode.AddObserver('ModifiedEvent', self.updateResectionVolume)
 
@@ -325,7 +324,10 @@ class ResectionPathLogic:
 
       # Transform Resection model from RAS -> IJK
       polyDataTransformFilter = vtk.vtkTransformPolyDataFilter()
-      polyDataTransformFilter.SetInput(self.resectionPolyData)
+      if (vtk.VTK_MAJOR_VERSION <= 5):
+        polyDataTransformFilter.SetInput(self.resectionPolyData)
+      else:
+        polyDataTransformFilter.SetInputData(self.resectionPolyData)
       polyDataTransformFilter.SetTransform(rasToIjkTransform)
       polyDataTransformFilter.Update()
 

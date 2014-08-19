@@ -3,17 +3,17 @@ import unittest
 from __main__ import vtk, qt, ctk, slicer
 
 #
-# ResectionPath
+# ResectionVolume
 #
 
-class ResectionPath:
+class ResectionVolume:
   def __init__(self, parent):
-    parent.title = "ResectionPath" # TODO make this more human readable by adding spaces
+    parent.title = "ResectionVolume" # TODO make this more human readable by adding spaces
     parent.categories = ["IGT"]
     parent.dependencies = ["Contours"]
     parent.contributors = ["Matt Lougheed (Queen's University)"]
     parent.helpText = """
-    This module uses fiducial points to create a 3D shape representing a resection.
+    This module uses fiducial points to generate a 3D shape. The shape can be adjusted by dragging or adding new fiducials and is used to recolor a label map.
     """
     parent.acknowledgementText = """
 
@@ -27,17 +27,17 @@ class ResectionPath:
       slicer.selfTests
     except AttributeError:
       slicer.selfTests = {}
-    slicer.selfTests['ResectionPath'] = self.runTest
+    slicer.selfTests['ResectionVolume'] = self.runTest
 
   def runTest(self):
-    tester = ResectionPathTest()
+    tester = ResectionVolumeTest()
     tester.runTest()
 
 #
-# ResectionPathWidget
+# ResectionVolumeWidget
 #
 
-class ResectionPathWidget:
+class ResectionVolumeWidget:
   def __init__(self, parent = None):
     if not parent:
       self.parent = slicer.qMRMLWidget()
@@ -49,7 +49,7 @@ class ResectionPathWidget:
     if not parent:
       self.setup()
       self.parent.show()
-    self.logic = ResectionPathLogic()
+    self.logic = ResectionVolumeLogic()
 
 
   def setup(self):
@@ -58,6 +58,7 @@ class ResectionPathWidget:
     #
     # Reload and Test area
     #
+    '''
     reloadCollapsibleButton = ctk.ctkCollapsibleButton()
     reloadCollapsibleButton.text = "Reload && Test"
     self.layout.addWidget(reloadCollapsibleButton)
@@ -66,9 +67,10 @@ class ResectionPathWidget:
     # reload button
     # (use this during development, but remove it when delivering
     #  your module to users)
+
     self.reloadButton = qt.QPushButton("Reload")
     self.reloadButton.toolTip = "Reload this module."
-    self.reloadButton.name = "ResectionPath Reload"
+    self.reloadButton.name = "ResectionVolume Reload"
     reloadFormLayout.addWidget(self.reloadButton)
     self.reloadButton.connect('clicked()', self.onReload)
 
@@ -79,7 +81,7 @@ class ResectionPathWidget:
     self.reloadAndTestButton.toolTip = "Reload this module and then run the self tests."
     reloadFormLayout.addWidget(self.reloadAndTestButton)
     self.reloadAndTestButton.connect('clicked()', self.onReloadAndTest)
-
+    '''
     #
     # Parameters Area
     #
@@ -127,7 +129,7 @@ class ResectionPathWidget:
     self.generateSurface = qt.QCheckBox()
     self.generateSurface.setToolTip("Generate the resection area surface")
     self.generateSurface.checked = 0
-    parametersFormLayout.addRow("Generate Resection Surface",self.generateSurface)
+    parametersFormLayout.addRow("Generate resection surface",self.generateSurface)
 
     #
     # Label Volume Selector
@@ -141,7 +143,7 @@ class ResectionPathWidget:
     self.labelSelector.showChildNodeTypes = False
     self.labelSelector.setMRMLScene(slicer.mrmlScene)
     self.labelSelector.setToolTip("Choose the label map")
-    parametersFormLayout.addRow("Label Map: ", self.labelSelector)
+    parametersFormLayout.addRow("Label map: ", self.labelSelector)
 
     #
     # Initial Label Value Selector
@@ -161,7 +163,7 @@ class ResectionPathWidget:
     #
     # Relabel button
     #
-    self.recolorLabelButton = qt.QPushButton("Recolor Label Map")
+    self.recolorLabelButton = qt.QPushButton("Recolor label map")
     self.recolorLabelButton.toolTip = "Recolor the label map to create a new label for the resection area."
     self.recolorLabelButton.enabled = False
     parametersFormLayout.addRow(self.recolorLabelButton)
@@ -208,13 +210,13 @@ class ResectionPathWidget:
   def onRecolorLabelMap(self):
     self.logic.recolorLabelMap(self.modelSelector.currentNode(), self.labelSelector.currentNode(), self.initialLabelValueSelector.value, self.outputLabelValueSelector.value)
 
-  def onReload(self,moduleName="ResectionPath"):
+  def onReload(self,moduleName="ResectionVolume"):
     """Generic reload method for any scripted module.
     ModuleWizard will subsitute correct default moduleName.
     """
     globals()[moduleName] = slicer.util.reloadScriptedModule(moduleName)
 
-  def onReloadAndTest(self,moduleName="ResectionPath"):
+  def onReloadAndTest(self,moduleName="ResectionVolume"):
     try:
       self.onReload()
       evalString = 'globals()["%s"].%sTest()' % (moduleName, moduleName)
@@ -228,10 +230,10 @@ class ResectionPathWidget:
 
 
 #
-# ResectionPathLogic
+# ResectionVolumeLogic
 #
 
-class ResectionPathLogic:
+class ResectionVolumeLogic:
   """This class should implement all the actual
   computation done by your module.  The interface
   should be such that other python code can import
@@ -372,7 +374,7 @@ class ResectionPathLogic:
       self.FiducialNode = None
 
 
-class ResectionPathTest(unittest.TestCase):
+class ResectionVolumeTest(unittest.TestCase):
   """
   This is the test case for your scripted module.
   """
@@ -403,9 +405,9 @@ class ResectionPathTest(unittest.TestCase):
     """Run as few or as many tests as needed here.
     """
     self.setUp()
-    self.test_ResectionPath1()
+    self.test_ResectionVolume1()
 
-  def test_ResectionPath1(self):
+  def test_ResectionVolume1(self):
     """ Ideally you should have several levels of tests.  At the lowest level
     tests sould exercise the functionality of the logic with different inputs
     (both valid and invalid).  At higher levels your tests should emulate the
@@ -437,6 +439,6 @@ class ResectionPathTest(unittest.TestCase):
     self.delayDisplay('Finished with download and loading\n')
 
     volumeNode = slicer.util.getNode(pattern="FA")
-    logic = ResectionPathLogic()
+    logic = ResectionVolumeLogic()
     self.assertTrue( logic.hasImageData(volumeNode) )
     self.delayDisplay('Test passed!')

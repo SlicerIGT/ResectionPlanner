@@ -4,12 +4,12 @@ project(ResectionPlanner)
 
 #-----------------------------------------------------------------------------
 # Extension meta-information
-set(EXTENSION_HOMEPAGE "http://www.example.com/Slicer/Extensions/ResectionPlanner")
+set(EXTENSION_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php?title=Documentation/Nightly/Extensions/ResectionPlanner")
 set(EXTENSION_CATEGORY "IGT")
 set(EXTENSION_CONTRIBUTORS "Matt Lougheed (Queen's University)")
 set(EXTENSION_DESCRIPTION "Modules for surgical resection planning.")
-set(EXTENSION_ICONURL "http://www.example.com/Slicer/Extensions/ResectionPlanner.png")
-set(EXTENSION_SCREENSHOTURLS "http://www.example.com/Slicer/Extensions/ResectionPlanner/Screenshots/1.png")
+set(EXTENSION_ICONURL "")
+set(EXTENSION_SCREENSHOTURLS "http://www.slicer.org/slicerWiki/index.php/File:ResectionVolume_UseCase_1-3.PNG")
 
 #-----------------------------------------------------------------------------
 # Extension dependencies
@@ -18,7 +18,7 @@ include(${Slicer_USE_FILE})
 
 #-----------------------------------------------------------------------------
 # Extension modules
-add_subdirectory(ResectionPath)
+add_subdirectory(ResectionVolume)
 ## NEXT_MODULE
 
 #-----------------------------------------------------------------------------

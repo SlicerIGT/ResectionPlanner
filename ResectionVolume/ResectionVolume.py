@@ -363,7 +363,6 @@ class ResectionVolumeLogic:
       maskFilter.NotMaskOn()
       maskFilter.Update()
 
-      print "Finished running mask"
       self.labelMapImgData = maskFilter.GetOutput()
       self.labelMapImgData.Modified()
       labelMap.SetAndObserveImageData(self.labelMapImgData)
@@ -423,22 +422,72 @@ class ResectionVolumeTest(unittest.TestCase):
     #
     # first, get some data
     #
-    import urllib
-    downloads = (
-        ('http://slicer.kitware.com/midas3/download?items=5767', 'FA.nrrd', slicer.util.loadVolume),
-        )
 
-    for url,name,loader in downloads:
-      filePath = slicer.app.temporaryPath + '/' + name
-      if not os.path.exists(filePath) or os.stat(filePath).st_size == 0:
-        print('Requesting download %s from %s...\n' % (name, url))
-        urllib.urlretrieve(url, filePath)
-      if loader:
-        print('Loading %s...\n' % (name,))
-        loader(filePath)
-    self.delayDisplay('Finished with download and loading\n')
+    resectionVolumeWidget = slicer.modules.ResectionVolumeWidget
+    # Confirm that generate surface checkbox will not stay checked
+    resectionVolumeWidget.generateSurface.setChecked(True)
+    self.assertTrue(resectionVolumeWidget.generateSurface.isChecked() == False)
 
-    volumeNode = slicer.util.getNode(pattern="FA")
-    logic = ResectionVolumeLogic()
-    self.assertTrue( logic.hasImageData(volumeNode) )
+    # Data is in local directory currently for initial development
+    slicer.util.loadMarkupsFiducialList("C:\SlicerTestData\ResectionVolumePoints.fcsv")
+    slicer.util.loadModel("C:\SlicerTestData\ResectionVolumeModel.vtk")
+    slicer.util.loadLabelVolume("C:\SlicerTestData\ResectionVolumeTestLabel.nrrd")
+    slicer.util.loadLabelVolume("C:\SlicerTestData\RecoloredResectionVolumeTestLabel.nrrd")
+
+    # Set fiducial points node
+    fiducialNode = slicer.util.getNode("ResectionVolumePoints")
+    resectionVolumeWidget.fiducialSelector.setCurrentNode(fiducialNode)
+
+    # Confirm that generate surface checkbox will not stay checked
+    resectionVolumeWidget.generateSurface.setChecked(True)
+    self.assertTrue(resectionVolumeWidget.generateSurface.isChecked() == False)
+
+    # Set model node
+    testModelNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLModelNode")
+    testModelNode.SetName("ResectionVolumeModelTest")
+    slicer.mrmlScene.AddNode(testModelNode)
+    resectionVolumeWidget.modelSelector.setCurrentNode(testModelNode)
+
+    # Check the generate surface box
+    resectionVolumeWidget.generateSurface.setChecked(True)
+
+    # Confirm that generate surface checkbox stays checked
+    self.assertTrue(resectionVolumeWidget.generateSurface.isChecked())
+
+    # Compare newly generated model with loaded model by determining if
+    # the maximum distance between the 2 sets of polydata is less than
+    # a desired value
+    loadedModelNode = slicer.util.getNode("ResectionVolumeModel")
+    distanceFilter = vtk.vtkDistancePolyDataFilter()
+    distanceFilter.SetInputData(0, testModelNode.GetPolyData())
+    distanceFilter.SetInputData(1, loadedModelNode.GetPolyData())
+    distanceFilter.Update()
+    distancePolyData = distanceFilter.GetOutput()
+    distanceRange = distancePolyData.GetScalarRange()
+    maxDistance = max(abs(distanceRange[0]),abs(distanceRange[1]))
+    self.assertTrue(maxDistance < 0.0001) # What value for cutoff
+
+    # Recolor the test label
+    labelNode = slicer.util.getNode("ResectionVolumeTestLabel")
+    loadedLabelNode = slicer.util.getNode("RecoloredResectionVolumeTestLabel")
+    resectionVolumeWidget.labelSelector.setCurrentNode(labelNode)
+    resectionVolumeWidget.initialLabelValueSelector.setValue(1)
+    resectionVolumeWidget.outputLabelValueSelector.setValue(2)
+    resectionVolumeWidget.onRecolorLabelMap()
+
+    # Compare the recolored test label with the loaded recolored test label
+    # by subtracting the 2 images (which should be the same) and then finding
+    # the min/max values, (which should be 0)
+    imageMath = vtk.vtkImageMathematics()
+    imageMath.SetOperationToSubtract()
+    imageMath.SetInput1Data(labelNode.GetImageData())
+    imageMath.SetInput2Data(loadedLabelNode.GetImageData())
+    imageMath.Update()
+
+    imageStatistics = vtk.vtkImageHistogramStatistics()
+    imageStatistics.SetInputData(imageMath.GetOutput())
+    minimumValue = imageStatistics.GetMinimum()
+    maximumValue = imageStatistics.GetMaximum()
+    self.assertTrue(minimumValue == maximumValue == 0)
+
     self.delayDisplay('Test passed!')

@@ -51,7 +51,6 @@ class ResectionVolumeWidget:
       self.parent.show()
     self.logic = ResectionVolumeLogic()
 
-
   def setup(self):
     # Instantiate and connect widgets ...
 
@@ -422,18 +421,28 @@ class ResectionVolumeTest(unittest.TestCase):
     #
     # first, get some data
     #
+    #slicer.util.selectModule('ResectionVolume')
+    import ResectionVolume;
 
-    resectionVolumeWidget = slicer.modules.ResectionVolumeWidget
+    resectionVolumeWidget = ResectionVolume.ResectionVolumeWidget();
+    #resectionVolumeWidget = slicer.modules.ResectionVolumeWidget
+
     # Confirm that generate surface checkbox will not stay checked
     resectionVolumeWidget.generateSurface.setChecked(True)
     self.assertTrue(resectionVolumeWidget.generateSurface.isChecked() == False)
 
     # Data is in local directory currently for initial development
+    dir = os.path.dirname(__file__)
+    '''
     slicer.util.loadMarkupsFiducialList("C:\SlicerTestData\ResectionVolumePoints.fcsv")
     slicer.util.loadModel("C:\SlicerTestData\ResectionVolumeModel.vtk")
     slicer.util.loadLabelVolume("C:\SlicerTestData\ResectionVolumeTestLabel.nrrd")
     slicer.util.loadLabelVolume("C:\SlicerTestData\RecoloredResectionVolumeTestLabel.nrrd")
-
+    '''
+    slicer.util.loadMarkupsFiducialList(dir+"/TestData/ResectionVolumePoints.fcsv")
+    slicer.util.loadModel(dir+"/TestData/ResectionVolumeModel.vtk")
+    slicer.util.loadLabelVolume(dir+"/TestData/ResectionVolumeTestLabel.nrrd")
+    slicer.util.loadLabelVolume(dir+"/TestData/RecoloredResectionVolumeTestLabel.nrrd")
     # Set fiducial points node
     fiducialNode = slicer.util.getNode("ResectionVolumePoints")
     resectionVolumeWidget.fiducialSelector.setCurrentNode(fiducialNode)
@@ -466,6 +475,7 @@ class ResectionVolumeTest(unittest.TestCase):
     distanceRange = distancePolyData.GetScalarRange()
     maxDistance = max(abs(distanceRange[0]),abs(distanceRange[1]))
     self.assertTrue(maxDistance < 0.0001) # What value for cutoff
+    self.delayDisplay('Generate Model Test Passed!')
 
     # Recolor the test label
     labelNode = slicer.util.getNode("ResectionVolumeTestLabel")

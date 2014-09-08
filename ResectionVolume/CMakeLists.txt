@@ -7,14 +7,29 @@ set(MODULE_PYTHON_SCRIPTS
   )
 
 set(MODULE_PYTHON_RESOURCES
+  Resources/Icons/${MODULE_NAME}.png
   )
+
+set(TEST_RESOURCES
+  TestData/RecoloredResectionVolumeTestLabel.nrrd
+  TestData/ResectionVolumeModel.vtk
+  TestData/ResectionVolumePoints.fcsv
+  TestData/ResectionVolumeTestLabel.nrrd
+  )
+
+if (BUILD_TESTING)
+  set(MODULE_PYTHON_RESOURCES
+    ${MODULE_PYTHON_RESOURCES}
+    ${TEST_RESOURCES}
+    )
+endif()
 
 #-----------------------------------------------------------------------------
 slicerMacroBuildScriptedModule(
   NAME ${MODULE_NAME}
   SCRIPTS ${MODULE_PYTHON_SCRIPTS}
   RESOURCES ${MODULE_PYTHON_RESOURCES}
-  WITH_GENERIC_TESTS
+  #WITH_GENERIC_TESTS
   )
 
 #-----------------------------------------------------------------------------

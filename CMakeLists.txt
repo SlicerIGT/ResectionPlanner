@@ -8,8 +8,8 @@ set(EXTENSION_HOMEPAGE "http://www.slicer.org/slicerWiki/index.php?title=Documen
 set(EXTENSION_CATEGORY "IGT")
 set(EXTENSION_CONTRIBUTORS "Matt Lougheed (Queen's University)")
 set(EXTENSION_DESCRIPTION "Modules for surgical resection planning.")
-set(EXTENSION_ICONURL "")
-set(EXTENSION_SCREENSHOTURLS "http://www.slicer.org/slicerWiki/index.php/File:ResectionVolume_UseCase_1-3.PNG")
+set(EXTENSION_ICONURL "http://wiki.slicer.org/slicerWiki/images/d/d6/ResectionPlannerLogo.png")
+set(EXTENSION_SCREENSHOTURLS "http://www.slicer.org/slicerWiki/index.php/File:ResectionVolume_Screenshot.png")
 
 #-----------------------------------------------------------------------------
 # Extension dependencies

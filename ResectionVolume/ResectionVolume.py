@@ -418,14 +418,9 @@ class ResectionVolumeTest(unittest.TestCase):
     """
 
     self.delayDisplay("Starting the test")
-    #
-    # first, get some data
-    #
-    #slicer.util.selectModule('ResectionVolume')
-    import ResectionVolume;
 
-    resectionVolumeWidget = ResectionVolume.ResectionVolumeWidget();
-    #resectionVolumeWidget = slicer.modules.ResectionVolumeWidget
+    slicer.util.selectModule('ResectionVolume')
+    resectionVolumeWidget = slicer.modules.ResectionVolumeWidget
 
     # Confirm that generate surface checkbox will not stay checked
     resectionVolumeWidget.generateSurface.setChecked(True)
@@ -433,16 +428,11 @@ class ResectionVolumeTest(unittest.TestCase):
 
     # Data is in local directory currently for initial development
     dir = os.path.dirname(__file__)
-    '''
-    slicer.util.loadMarkupsFiducialList("C:\SlicerTestData\ResectionVolumePoints.fcsv")
-    slicer.util.loadModel("C:\SlicerTestData\ResectionVolumeModel.vtk")
-    slicer.util.loadLabelVolume("C:\SlicerTestData\ResectionVolumeTestLabel.nrrd")
-    slicer.util.loadLabelVolume("C:\SlicerTestData\RecoloredResectionVolumeTestLabel.nrrd")
-    '''
     slicer.util.loadMarkupsFiducialList(dir+"/TestData/ResectionVolumePoints.fcsv")
     slicer.util.loadModel(dir+"/TestData/ResectionVolumeModel.vtk")
     slicer.util.loadLabelVolume(dir+"/TestData/ResectionVolumeTestLabel.nrrd")
     slicer.util.loadLabelVolume(dir+"/TestData/RecoloredResectionVolumeTestLabel.nrrd")
+
     # Set fiducial points node
     fiducialNode = slicer.util.getNode("ResectionVolumePoints")
     resectionVolumeWidget.fiducialSelector.setCurrentNode(fiducialNode)

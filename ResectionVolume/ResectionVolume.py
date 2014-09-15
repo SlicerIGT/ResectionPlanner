@@ -8,7 +8,9 @@ from __main__ import vtk, qt, ctk, slicer
 
 class ResectionVolume:
   def __init__(self, parent):
-    parent.title = "ResectionVolume" # TODO make this more human readable by adding spaces
+    self.parent = parent
+    self.moduleName = self.__class__.__name__
+    parent.title = "ResectionVolume"
     parent.categories = ["IGT"]
     parent.dependencies = ["Contours"]
     parent.contributors = ["Matt Lougheed (Queen's University)"]
@@ -17,8 +19,11 @@ class ResectionVolume:
     """
     parent.acknowledgementText = """
 
-""" # replace with organization, grant and thanks.
-    self.parent = parent
+"""
+    moduleDir = os.path.dirname(self.parent.path)
+    iconPath = os.path.join(moduleDir, 'Resources/Icons', self.moduleName+'.png')
+    if os.path.isfile(iconPath):
+      parent.icon = qt.QIcon(iconPath)
 
     # Add this test to the SelfTest module's list for discovery when the module
     # is created.  Since this module may be discovered before SelfTests itself,

@@ -12,7 +12,7 @@ class ResectionVolume:
     self.moduleName = self.__class__.__name__
     parent.title = "ResectionVolume"
     parent.categories = ["IGT"]
-    parent.dependencies = ["Contours"]
+    parent.dependencies = []
     parent.contributors = ["Matt Lougheed (Queen's University)"]
     parent.helpText = """
     This module uses fiducial points to generate a 3D shape. The shape can be adjusted by dragging or adding new fiducials and is used to recolor a label map.

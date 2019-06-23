@@ -6,7 +6,7 @@ from __main__ import vtk, qt, ctk, slicer
 # ResectionVolume
 #
 
-class ResectionVolume:
+class ResectionVolume(object):
   def __init__(self, parent):
     self.parent = parent
     self.moduleName = self.__class__.__name__
@@ -42,7 +42,7 @@ class ResectionVolume:
 # ResectionVolumeWidget
 #
 
-class ResectionVolumeWidget:
+class ResectionVolumeWidget(object):
   def __init__(self, parent = None):
     if not parent:
       self.parent = slicer.qMRMLWidget()
@@ -226,7 +226,7 @@ class ResectionVolumeWidget:
       evalString = 'globals()["%s"].%sTest()' % (moduleName, moduleName)
       tester = eval(evalString)
       tester.runTest()
-    except Exception, e:
+    except Exception as e:
       import traceback
       traceback.print_exc()
       qt.QMessageBox.warning(slicer.util.mainWindow(),
@@ -237,7 +237,7 @@ class ResectionVolumeWidget:
 # ResectionVolumeLogic
 #
 
-class ResectionVolumeLogic:
+class ResectionVolumeLogic(object):
   """This class should implement all the actual
   computation done by your module.  The interface
   should be such that other python code can import

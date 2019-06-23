@@ -139,11 +139,12 @@ class ResectionVolumeWidget(object):
     # Label Volume Selector
     #
     self.labelSelector = slicer.qMRMLNodeComboBox()
-    self.labelSelector.nodeTypes = ("vtkMRMLScalarVolumeNode", "")
+    self.labelSelector.nodeTypes = ("vtkMRMLLabelMapVolumeNode", "")
     self.labelSelector.addEnabled = False
     self.labelSelector.removeEnabled = False
     self.labelSelector.noneEnabled = True
     self.labelSelector.showHidden = False
+    self.labelSelector.selectNodeUponCreation = True
     self.labelSelector.showChildNodeTypes = False
     self.labelSelector.setMRMLScene(slicer.mrmlScene)
     self.labelSelector.setToolTip("Choose the label map")
@@ -246,7 +247,7 @@ class ResectionVolumeLogic(object):
   """
   def __init__(self):
     self.FiducialNode = None
-    self.tag = 0;
+    self.tag = 0
 
   def updatePoints(self):
     points = vtk.vtkPoints()
@@ -295,11 +296,10 @@ class ResectionVolumeLogic(object):
       self.Smoother.Update()
 
       if modelNode.GetDisplayNodeID() == None:
-        modelDisplayNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLModelDisplayNode")
+        modelDisplayNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelDisplayNode")
         modelDisplayNode.SetColor(0,0,1) # Blue
         modelDisplayNode.BackfaceCullingOff()
         modelDisplayNode.SetOpacity(0.3) # Between 0-1, 1 being opaque
-        slicer.mrmlScene.AddNode(modelDisplayNode)
         modelNode.SetAndObserveDisplayNodeID(modelDisplayNode.GetID())
 
       if (vtk.VTK_MAJOR_VERSION <= 5):
@@ -311,9 +311,7 @@ class ResectionVolumeLogic(object):
       self.tag = self.FiducialNode.AddObserver('ModifiedEvent', self.updateResectionVolume)
 
   def recolorLabelMap(self, modelNode, labelMap, initialValue, outputValue):
-    import vtkSlicerRtCommonPython
     if (modelNode != None and labelMap != None):
-
       self.labelMapImgData = labelMap.GetImageData()
       self.resectionPolyData = modelNode.GetPolyData()
 
@@ -338,6 +336,7 @@ class ResectionVolumeLogic(object):
       polyDataTransformFilter.Update()
 
       # Convert Resection model to label map
+      import vtkSlicerRtCommonPython
       polyDataToLabelmapFilter = vtkSlicerRtCommonPython.vtkPolyDataToLabelmapFilter()
       polyDataToLabelmapFilter.SetInputPolyData(polyDataTransformFilter.GetOutput())
       polyDataToLabelmapFilter.SetReferenceImage(self.labelMapImgData)
@@ -447,9 +446,8 @@ class ResectionVolumeTest(unittest.TestCase):
     self.assertTrue(resectionVolumeWidget.generateSurface.isChecked() == False)
 
     # Set model node
-    testModelNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLModelNode")
+    testModelNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelNode")
     testModelNode.SetName("ResectionVolumeModelTest")
-    slicer.mrmlScene.AddNode(testModelNode)
     resectionVolumeWidget.modelSelector.setCurrentNode(testModelNode)
 
     # Check the generate surface box

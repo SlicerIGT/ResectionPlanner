@@ -11,6 +11,8 @@ set(EXTENSION_DESCRIPTION "Modules for surgical resection planning.")
 set(EXTENSION_ICONURL "http://wiki.slicer.org/slicerWiki/images/d/d6/ResectionPlannerLogo.png")
 set(EXTENSION_SCREENSHOTURLS "http://www.slicer.org/slicerWiki/index.php/File:ResectionVolume_Screenshot.png")
 
+set(EXTENSION_DEPENDS "SlicerRT") # Specified as a space separated string, a list or 'NA' if any
+
 #-----------------------------------------------------------------------------
 # Extension dependencies
 find_package(Slicer REQUIRED)
